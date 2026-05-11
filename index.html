@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Rondines</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<!-- ETIQUETAS PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#111111">
+<link rel="apple-touch-icon" href="icono.png">
+
+<style>
+    body { margin:0; font-family:Arial; background:#111; color:white; }
+    #map { width:100%; height:100vh; }
+    .panel { position:absolute; top:10px; left:10px; z-index:999; background:rgba(30, 30, 30, 0.95); padding:15px; border-radius:10px; width:260px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+    .panel h2 { margin-top:0; font-size:18px; border-bottom: 1px solid #444; padding-bottom: 5px;}
+    .estado { margin:8px 0; font-size:14px; }
+    .ok { color:#00ff88; font-weight: bold; }
+    .alerta { color:#ff4444; font-weight: bold; }
+    .destacado { color: #00ddff; font-weight: bold; }
+    .btn { width: 100%; padding: 10px; margin-top: 10px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; text-transform: uppercase; font-size: 12px;}
+    .btn-incidencia { background: #ffaa00; color: #000; }
+    .btn-panico { background: #ff2a2a; color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="panel">
+    <h2>Rondín: Turno Nocturno</h2>
+    <div class="estado">Progreso: <span id="progreso" class="destacado">0/8</span></div>
+    <div class="estado">Ir a: <span id="siguiente-punto" class="alerta">Calculando...</span></div>
+    <div class="estado">GPS: <span id="gps" class="ok">Conectando...</span></div>
+    <button class="btn btn-incidencia" onclick="alert('Incidencia guardada')">📸 Reportar Incidencia</button>
+    <button class="btn btn-panico" onclick="alert('ALERTA ENVIADA')">🚨 PÁNICO 🚨</button>
+</div>
+
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ================= MAPA Y RUTAS =================
+const map = L.map('map').setView([20.2114, -87.4653], 18);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:22 }).addTo(map);
+
+const checkpoints = [
+    { nombre:"Lobby", lat:20.2114, lng:-87.4653, radio:15, completado:false },
+    { nombre:"A1", lat:20.2118, lng:-87.4650, radio:15, completado:false },
+    { nombre:"B1", lat:20.2122, lng:-87.4648, radio:15, completado:false },
+    { nombre:"D1", lat:20.2126, lng:-87.4650, radio:15, completado:false },
+    { nombre:"E", lat:20.2128, lng:-87.4655, radio:15, completado:false },
+    { nombre:"D2", lat:20.2126, lng:-87.4660, radio:15, completado:false },
+    { nombre:"B2", lat:20.2122, lng:-87.4662, radio:15, completado:false },
+    { nombre:"A2", lat:20.2118, lng:-87.4660, radio:15, completado:false }
+];
+
+let indiceActual = 0;
+checkpoints.forEach((punto, index) => {
+    punto.circulo = L.circle([punto.lat, punto.lng], {radius: punto.radio, fillOpacity: 0.4}).addTo(map);
+    punto.circulo.bindTooltip(punto.nombre, {permanent: true, direction:"center"}).openTooltip();
+});
+
+function actualizarEstado() {
+    checkpoints.forEach((punto, index) => {
+        if (punto.completado) punto.circulo.setStyle({ color: '#00ff88', fillColor: '#00ff88' });
+        else if (index === indiceActual) {
+            punto.circulo.setStyle({ color: '#ffcc00', fillColor: '#ffcc00', dashArray: '5, 5' });
+            document.getElementById('siguiente-punto').innerText = punto.nombre;
+        } else punto.circulo.setStyle({ color: '#555', fillColor: '#333' });
+    });
+}
+actualizarEstado();
+
+let marcador = L.circleMarker([20.2114, -87.4653], {radius: 8, color: '#fff', fillColor: '#f00', fillOpacity: 1}).addTo(map);
+
+function calcularDistancia(lat1, lng1, lat2, lng2) {
+    const R = 6371e3; const p1 = lat1 * Math.PI/180; const p2 = lat2 * Math.PI/180;
+    const dp = (lat2-lat1) * Math.PI/180; const dl = (lng2-lng1) * Math.PI/180;
+    const a = Math.sin(dp/2) * Math.sin(dp/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) * Math.sin(dl/2);
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+}
+
+if(navigator.geolocation) {
+    navigator.geolocation.watchPosition(pos => {
+        const lat = pos.coords.latitude; const lng = pos.coords.longitude;
+        if(pos.coords.accuracy > 30) return; // Ignorar mala señal
+        marcador.setLatLng([lat, lng]);
+        map.panTo([lat, lng]);
+        document.getElementById('gps').innerText = 'Óptima';
+
+        if (indiceActual < checkpoints.length) {
+            if (calcularDistancia(lat, lng, checkpoints[indiceActual].lat, checkpoints[indiceActual].lng) <= checkpoints[indiceActual].radio) {
+                checkpoints[indiceActual].completado = true;
+                indiceActual++;
+                document.getElementById('progreso').innerText = `${indiceActual}/${checkpoints.length}`;
+                actualizarEstado();
+                if(indiceActual === checkpoints.length) alert("¡Rondín Terminado!");
+            }
+        }
+    }, err => {}, { enableHighAccuracy: true });
+}
+
+// ================= REGISTRO PWA =================
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then(() => console.log('PWA Lista'));
+    });
+}
+</script>
+</body>
+</html>
