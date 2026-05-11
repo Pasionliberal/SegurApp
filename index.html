@@ -32,26 +32,45 @@
     <div class="estado">Progreso: <span id="progreso" class="destacado">0/8</span></div>
     <div class="estado">Ir a: <span id="siguiente-punto" class="alerta">Calculando...</span></div>
     <div class="estado">GPS: <span id="gps" class="ok">Conectando...</span></div>
-    <button class="btn btn-incidencia" onclick="alert('Incidencia guardada')">📸 Reportar Incidencia</button>
-    <button class="btn btn-panico" onclick="alert('ALERTA ENVIADA')">🚨 PÁNICO 🚨</button>
+    <button class="btn btn-incidencia" onclick="enviarReporte()">📸 Reportar vía WhatsApp</button>
+    <button class="btn btn-panico" onclick="window.location.href='tel:+5219841351528'">🚨 LLAMAR SUPERVISOR 🚨</button>
 </div>
 
 <div id="map"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ================= MAPA Y RUTAS =================
-const map = L.map('map').setView([20.2114, -87.4653], 18);
+const map = L.map('map').setView([20.1828431,-87.4655289,18.73], 22);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:22 }).addTo(map);
+    // Variables para guardar la posición en tiempo real
+let latActual = 20.2114;
+let lngActual = -87.4653;
+
+function enviarReporte() {
+    let reporte = prompt("Describa la incidencia (Ej: Lámpara rota, Puerta abierta):");
+    
+    if(reporte) {
+        // PON AQUÍ EL NÚMERO DE WHATSAPP DEL SUPERVISOR (Con código de país, sin el símbolo +)
+        let numeroSupervisor = "521234567890"; 
+        
+        let linkGoogleMaps = `https://www.google.com/maps?q=${latActual},${lngActual}`;
+        let mensaje = `🚨 *REPORTE DE INCIDENCIA* 🚨%0A%0A*Guardia:* En turno%0A*Detalle:* ${reporte}%0A*Ubicación:* ${linkGoogleMaps}`;
+        
+        // Abre WhatsApp con el mensaje pre-llenado
+        window.open(`https://wa.me/${numeroSupervisor}?text=${mensaje}`, '_blank');
+    }
+}
 
 const checkpoints = [
-    { nombre:"Lobby", lat:20.2114, lng:-87.4653, radio:15, completado:false },
-    { nombre:"A1", lat:20.2118, lng:-87.4650, radio:15, completado:false },
-    { nombre:"B1", lat:20.2122, lng:-87.4648, radio:15, completado:false },
-    { nombre:"D1", lat:20.2126, lng:-87.4650, radio:15, completado:false },
-    { nombre:"E", lat:20.2128, lng:-87.4655, radio:15, completado:false },
-    { nombre:"D2", lat:20.2126, lng:-87.4660, radio:15, completado:false },
-    { nombre:"B2", lat:20.2122, lng:-87.4662, radio:15, completado:false },
-    { nombre:"A2", lat:20.2118, lng:-87.4660, radio:15, completado:false }
+    { nombre:"Lobby", lat:20.18898, lng:-87.46577, radio:15, completado:false },
+    { nombre:"RestaurantGYM", lat:20.18879, lng:-87.46583, radio:15, completado:false },
+    { nombre:"A1", lat:20.18855, lng:-87.46555, radio:15, completado:false },
+    { nombre:"B1", lat:20.18878, lng:-87.46520, radio:15, completado:false },
+    { nombre:"D1", lat:20.18918, lng:-87.46518, radio:15, completado:false },
+    { nombre:"E1", lat:20.18942, lng:-87.46558, radio:15, completado:false },
+    { nombre:"D2", lat:20.18918, lng:-87.46598, radio:15, completado:false },
+    { nombre:"B2", lat:20.18880, lng:-87.46610, radio:15, completado:false },
+    { nombre:"A2", lat:20.18852, lng:-87.46590, radio:15, completado:false }
 ];
 
 let indiceActual = 0;
@@ -82,7 +101,7 @@ function calcularDistancia(lat1, lng1, lat2, lng2) {
 
 if(navigator.geolocation) {
     navigator.geolocation.watchPosition(pos => {
-        const lat = pos.coords.latitude; const lng = pos.coords.longitude;
+        const latActual = pos.coords.latitude; const lngActual = pos.coords.longitude;
         if(pos.coords.accuracy > 30) return; // Ignorar mala señal
         marcador.setLatLng([lat, lng]);
         map.panTo([lat, lng]);
